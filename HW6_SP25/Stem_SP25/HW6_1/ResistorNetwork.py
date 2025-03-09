@@ -1,4 +1,5 @@
 #region imports
+import numpy as np
 from scipy.optimize import fsolve
 from Resistor import Resistor
 from VoltageSource import VoltageSource
@@ -60,9 +61,9 @@ class ResistorNetwork():
         :param Txt: [string] the lines of the text file
         :return: a resistor object
         """
-        R = #JES Missing Code  # instantiate a new resistor object
+        R = Resistor()  # instantiate a new resistor object
         N += 1  # <Resistor> was detected, so move to next line in Txt
-        txt = #JES Missing Code  # retrieve line from Txt and make it lower case using Txt[N].lower()
+        txt = Txt[N].lower()  # retrieve line from Txt and make it lower case using Txt[N].lower()
         while "resistor" not in txt:
             if "name" in txt:
                 R.Name = txt.split('=')[1].strip()
@@ -125,7 +126,7 @@ class ResistorNetwork():
         :return:
         """
         # need to set the currents to that Kirchoff's laws are satisfied
-        i0 = #JES MISSING CODE  #define an initial guess for the currents in the circuit
+        i0 = np.array([1.0, 1.0, 1.0]) #define an initial guess for the currents in the circuit
         i = fsolve(self.GetKirchoffVals,i0)
         # print output to the screen
         print("I1 = {:0.1f}".format(i[0]))
@@ -170,6 +171,8 @@ class ResistorNetwork():
                 return v.Voltage
             if name[::-1] == v.Name:
                 return -v.Voltage
+        # If the element is not found, return 0.0
+        return 0.0
 
     def GetLoopVoltageDrops(self):
         """
@@ -206,17 +209,58 @@ class ResistorNetwork_2(ResistorNetwork):
     #region constructor
     def __init__(self):
         super().__init__()  # runs the constructor of the parent class
-        #region attributes
-        #endregion
     #endregion
 
     #region methods
     def AnalyzeCircuit(self):
-        #JES Missing Code
-        pass
+        """
+        Use fsolve to find currents in the resistor network.
+        :return: list of currents
+        """
+        # need to set the currents to that Kirchoff's laws are satisfied
+        i0 = np.array([1.0, 1.0, 1.0, 1.0, 1.0])  # define an initial guess for the currents in the circuit
+        i = fsolve(self.GetKirchoffVals, i0)
+        # print output to the screen
+        print("I1 = {:0.1f}".format(i[0]))
+        print("I2 = {:0.1f}".format(i[1]))
+        print("I3 = {:0.1f}".format(i[2]))
+        print("I4 = {:0.1f}".format(i[3]))
+        print("I5 = {:0.1f}".format(i[4]))
+        return i
 
-    def GetKirchoffVals(self,i):
-        #JES Missing Code
-        pass
+    def GetKirchoffVals(self, i):
+        """
+        This function uses Kirchoff Voltage and Current laws to analyze this specific circuit
+        KVL:  The net voltage drop for a closed loop in a circuit should be zero
+        KCL:  The net current flow into a node in a circuit should be zero
+        :param i: a list of currents relevant to the circuit
+        :return: a list of loop voltage drops and node currents
+        """
+        # set current in resistors in the top loop.
+        self.GetResistorByName('ad').Current = i[0]  # I_1 in diagram
+        self.GetResistorByName('bc').Current = i[0]  # I_1 in diagram
+        self.GetResistorByName('cd').Current = i[2]  # I_3 in diagram
+        # set current in resistor in bottom loop.
+        self.GetResistorByName('ce').Current = i[4]  # I_5 in diagram
+        self.GetResistorByName('df').Current = i[3]  # I_4 in diagram
+
+        # calculate net current into node c
+        Node_c_Current = sum([i[0], i[4], -i[2]])  # I_1 + I_5 - I_3 = 0
+
+        # calculate net current into node e
+        Node_e_Current = sum([i[1], -i[3], -i[4]])  # I_2 - I_4 - I_5 = 0
+
+        # calculate net current into node d
+        Node_d_Current = sum([i[2], i[3], -i[1]])  # I_3 + I_4 - I_2 = 0
+
+        KVL = self.GetLoopVoltageDrops()  # 2 equations here
+        KVL.append(Node_c_Current)  # one equation here
+        KVL.append(Node_e_Current)  # one equation here
+        KVL.append(Node_d_Current)  # one equation here
+        return KVL
+    #endregion
+
+
+
     #endregion
 #endregion
